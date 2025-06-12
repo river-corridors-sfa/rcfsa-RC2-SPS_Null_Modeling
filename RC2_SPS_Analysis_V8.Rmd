@@ -30,8 +30,7 @@ library(vegan)
 library(picante)
 library(Rfast)
 library(tidyverse)
-source("~/Documents/Code Information/FTICR Scripts/R Functions/bMNTD_Fast.R")
-# source("C:/Users/gara009/Downloads/Updated Scripts and Files-20230626T154736Z-001/Updated Scripts and Files/bMNTD_Fast.R")
+source("src/bMNTD_Fast.R")
 
 ```
 
@@ -249,17 +248,13 @@ plot.beta.diver = function(in.div, in.meta, col.name){
 This section of code loads in most of the data for analysis, performs some data reorganization, and **importantly** removes duplicate molecular formula from the dataset.
 
 ```{r load-in}
-# Set working directory
-setwd("~/Documents/PNNL Analyses/RC2 Null Modeling/")
-# setwd('C:/Users/gara009/Downloads/Updated Scripts and Files-20230626T154736Z-001/Updated Scripts and Files/')
-
 # Load in ICR data
-data = read.csv("Processed_RC2_SPS_11-2021_Data.csv", check.names = F, row.names = 1)
-mol = read.csv("Processed_RC2_SPS_11-2021_Mol.csv", check.names = F, row.names = 1)
+data = read.csv("Data/Processed_RC2_SPS_11-2021_Data.csv", check.names = F, row.names = 1)
+mol = read.csv("Data/Processed_RC2_SPS_11-2021_Mol.csv", check.names = F, row.names = 1)
 
 # Load in metadata
-meta1 = read.csv("SPS_Sample_Field_Metadata.csv")
-meta2 = read.csv("SPS_Sample_IGSN-Mapping.csv", skip = 1) %>% dplyr::select(Site_ID = 'Locality', Location = 'Physiographic_Feature_Name' )%>% distinct()
+meta1 = read.csv("v3_SFA_SpatialStudy_2021_SampleData/SPS_Sample_Field_Metadata.csv")
+meta2 = read.csv("v3_SFA_SpatialStudy_2021_SampleData/SPS_Sample_IGSN-Mapping.csv", skip = 1) %>% dplyr::select(Site_ID = 'Locality', Location = 'Physiographic_Feature_Name' )%>% distinct()
 
 meta = merge(meta1, meta2, by = 'Site_ID')  
 rm(meta1, meta2)
@@ -531,7 +526,7 @@ This chunk of code is designed to import geochemical data from the data package 
 
 ```{r clean-geochem-data, fig.width=7, fig.height=6, results=F, message=F, warning=F}
 # Load in geochemistry
-geochem = read.csv("Geochemistry Data/v3_SPS_Water_Sample_Data_Summary.csv", skip = 2)
+geochem = read.csv("v3_SFA_SpatialStudy_2021_SampleData/v3_SPS_Water_Sample_Data_Summary.csv", skip = 2)
 
 # Delete unnecessary rows and columns
 geochem = geochem[-1:-11,-1]
@@ -716,7 +711,7 @@ Various alpha diversity analyses to determine whether various metadata explain e
 
 ```{r alpha-div-vs-geospatial, results=T, message=F, warning=F}
 # Load in MCD
-mcd = read.tree("RC2_SPS_03-2022_MCD_UPGMA.tre")
+mcd = read.tree("Data/RC2_SPS_03-2022_MCD_UPGMA.tre")
 
 # Matching data and tree
 phylo = match.phylo.data(mcd, data)
@@ -1042,7 +1037,7 @@ In an inverse of the relationships that we observed with the alpha diversity dat
 ```{r, betaNTI-geospat-correlation, results=T, message=F, warning=F}
 ### Load in bNTI and calculate averages
 # Load in bNTI results
-bnti = as.matrix(as.dist(read.csv("RC2_SPS_MCD_bNTI_999.csv", row.names = 1)))
+bnti = as.matrix(as.dist(read.csv("Data/RC2_SPS_MCD_bNTI_999.csv", row.names = 1)))
 
 # Reorder bNTI
 bnti = bnti[order(row.names(bnti)), order(colnames(bnti))]
