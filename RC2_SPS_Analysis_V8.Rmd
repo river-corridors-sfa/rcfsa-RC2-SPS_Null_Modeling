@@ -1,0 +1,1384 @@
+---
+title: "RC2 Spatial Analyses"
+author: "RED"
+date: "01/08/2024"
+output:
+  html_document: default
+  pdf_document: default
+---
+This file details the analyses performed on the spatially-resolved samples collected as part of the RC SFA at PNNL.
+
+## Setup
+```{r setup-packages, include=T, results=F, message=F, warning=F}
+# General options
+knitr::opts_chunk$set(cache = F)
+options(digits = 10)
+set.seed(2414)
+
+# Load in packages
+library(tidyverse)
+library(reshape2)
+library(ggpointdensity)
+library(GGally)
+library(ggrepel)
+library(ggpubr)
+library(gridExtra)
+library(kableExtra)
+library(Hmisc)
+library(mgcv)
+library(vegan)
+library(picante)
+library(Rfast)
+library(tidyverse)
+source("~/Documents/Code Information/FTICR Scripts/R Functions/bMNTD_Fast.R")
+# source("C:/Users/gara009/Downloads/Updated Scripts and Files-20230626T154736Z-001/Updated Scripts and Files/bMNTD_Fast.R")
+
+```
+
+```{r functions, include=F}
+# Preventing functions from being printed because they are cumbersome in the output
+generate.vk = function(in.mol){
+  # Set limits
+  xlim = c(0, max(in.mol$OtoC_ratio))
+  ylim = c(0, max(in.mol$HtoC_ratio))
+  
+  # Plotting the VK diagram
+  in.mol %>% 
+    ggplot(aes(x = OtoC_ratio, y = HtoC_ratio, color = after_stat(ndensity)))+
+    geom_pointdensity()+
+    scale_color_gradient2(low = "dodgerblue", mid = "goldenrod2", 
+                          high = "firebrick2", midpoint = 0.5)+
+    xlim(xlim)+
+    ylim(ylim)+
+    labs(color = "Relative Density")+
+    xlab("O:C")+
+    ylab("H:C")+
+    theme_bw()+
+    theme(axis.text.x = element_text(colour = "black", size = 12),
+          axis.text.y = element_text(colour = "black", size = 12),
+          axis.title = element_text(colour = "black", size = 14),
+          axis.ticks = element_line(color = "black"),
+          panel.border = element_rect(size = 1, colour = "black"),
+          panel.background = element_blank(),
+          panel.grid = element_blank())
+}
+
+alpha.diver = function(in.data, in.tree){
+    # Counting peaks and transformations
+  div = data.frame(Site = colnames(in.data), SR = colSums(in.data))
+  
+  # Faith's PD
+  faith = pd(t(in.data), in.tree, include.root = F)
+  div = data.frame(div, MCD_PD = faith$PD)
+  
+  # Preparing data for plotting
+  div = melt(div, id.vars = "Site")
+
+  # Adjusting variable names
+  div$Metric = case_when(div$variable == "SR" ~ "# of Formulas",
+                         div$variable == "MCD_PD" ~ "Faith's PD (MCD)")
+  
+  # Returning div
+  return(div)
+}
+
+plot.alpha.diver = function(in.div, in.meta, col.name, metric = NULL){
+  # if-loop to determine if column is numerical
+  if(!is.numeric(in.meta[,col.name])){
+    if(is.null(metric)){
+      in.meta = in.meta[,c("Site", col.name)]
+      colnames(in.meta) = c("Site", "Col_Name")
+      
+      plot = in.div %>% left_join(in.meta, by = "Site") %>%
+        ggplot(aes(x = Col_Name, y = value))+
+        geom_boxplot(color = "black") + geom_jitter() + stat_compare_means(method = "kruskal.test")+
+        xlab(col.name) + ylab("Alpha Diversity Metric")+
+        facet_grid(Metric~., scales = "free_y")+
+        theme_bw() + theme(text = element_text(size = 14),
+                           axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, colour = "black"),
+                           axis.text.y = element_text(colour = "black"),
+                           panel.border = element_rect(size = 1, colour = "black"),
+                           panel.background = element_blank(),
+                           panel.grid = element_blank())
+    } else {
+      in.meta = in.meta[,c("Site", col.name)]
+      colnames(in.meta) = c("Site", "Col_Name")
+      
+      plot = in.div %>% filter(grepl(metric, Metric)) %>%
+        left_join(in.meta, by = "Site") %>%
+        ggplot(aes(x = Col_Name, y = value))+
+        geom_boxplot(color = "black") + geom_jitter() + stat_compare_means(method = "kruskal.test")+
+        xlab(col.name) + ylab("Alpha Diversity Metric")+
+        theme_bw() + theme(text = element_text(size = 14),
+                           axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, colour = "black"),
+                           axis.text.y = element_text(colour = "black"),
+                           panel.border = element_rect(size = 1, colour = "black"),
+                           panel.background = element_blank(),
+                           panel.grid = element_blank())
+    }
+  } else {
+    if(is.null(metric)){
+      in.meta = in.meta[,c("Site", col.name)]
+      colnames(in.meta) = c("Site", "Col_Name")
+      
+      plot = in.div %>% left_join(in.meta, by = "Site") %>%
+        ggplot(aes(x = Col_Name, y = value))+
+        geom_point() + geom_smooth(method = "lm") + stat_cor(method = "spearman", cor.coef.name = "rho")+
+        xlab(col.name) + ylab("Alpha Diversity Metric")+
+        facet_grid(Metric~., scales = "free_y")+
+        theme_bw() + theme(text = element_text(size = 14),
+                           axis.text = element_text(colour = "black"),
+                           panel.border = element_rect(size = 1, colour = "black"),
+                           panel.background = element_blank(),
+                           panel.grid = element_blank())
+    } else {
+      in.meta = in.meta[,c("Site", col.name)]
+      colnames(in.meta) = c("Site", "Col_Name")
+      
+      plot = in.div %>% filter(grepl(metric, Metric)) %>%
+        left_join(in.meta, by = "Site") %>%
+        ggplot(aes(x = Col_Name, y = value))+
+        geom_point() + geom_smooth(method = "lm") + stat_cor(method = "spearman", cor.coef.name = "rho")+
+        xlab(col.name) + ylab("Alpha Diversity Metric")+
+        theme_bw() + theme(text = element_text(size = 14),
+                           axis.text = element_text(colour = "black"),
+                           panel.border = element_rect(size = 1, colour = "black"),
+                           panel.background = element_blank(),
+                           panel.grid = element_blank())
+    }
+  }
+  
+  # Build output
+  output = list()
+  output[["Plot"]] = plot
+  
+  # Return output
+  return(output)
+}
+
+beta.diver = function(in.tax, in.phy){
+  # Taxonomic NMDS
+  tax.nms = metaMDS(in.tax, trymax = 200)
+  tax.stress = data.frame(X = Inf, Y = -Inf, text = paste0("Stress: ", round(tax.nms$stress, 3)), x_adjust = 1.05, y_adjust = -0.5)
+  tax.scores = data.frame(Site = row.names(vegan::scores(tax.nms)), vegan::scores(tax.nms))
+    
+  # Phylogenetic NMDS
+  phy.nms = metaMDS(in.phy, trymax = 200)
+  phy.stress = data.frame(X = Inf, Y = -Inf, text = paste0("Stress: ", round(phy.nms$stress, 3)), x_adjust = 1.05, y_adjust = -0.5)
+  phy.scores = data.frame(Site = row.names(vegan::scores(phy.nms)), vegan::scores(phy.nms))
+  
+  # Output
+  output = list()
+  output[["Tax_Data"]] = tax.scores
+  output[["Tax_Stress"]] = tax.stress
+  output[["Phy_Data"]] = phy.scores
+  output[["Phy_Stress"]] = phy.stress
+  
+  return(output)
+}
+
+plot.beta.diver = function(in.div, in.meta, col.name){
+  # Selecting metadata columns
+  in.meta = in.meta[,c("Site", col.name)]
+  colnames(in.meta) = c("Site", "Col_Name")
+  
+  # Plotting data
+  plot = list()
+  if(is.numeric(in.meta$Col_Name)){
+    plot[["Taxonomic"]] = in.div$Tax_Data %>% left_join(in.meta, by = "Site") %>%
+      ggplot(aes(x = NMDS1, y = NMDS2))+
+      geom_point(aes(color = Col_Name), size = 4)+
+      geom_text(data=in.div$Tax_Stress, aes(x=X, y=Y, hjust=x_adjust, vjust=y_adjust, label=text), size = 5)+
+      scale_color_viridis_c(name = col.name)+
+      theme_bw() + theme(axis.title = element_text(size = 13, color = "black"),
+                         axis.text = element_text(size = 11, color = "black"),
+                         axis.ticks = element_line(color = "black"),
+                         panel.border = element_rect(color = "black"),
+                         panel.grid = element_blank(),
+                         panel.background = element_blank())
+  } else {
+    plot[["Taxonomic"]] = in.div$Tax_Data %>% left_join(in.meta, by = "Site") %>%
+      ggplot(aes(x = NMDS1, y = NMDS2))+
+      geom_point(aes(color = Col_Name), size = 4)+
+      stat_ellipse(aes(color = Col_Name))+
+      geom_text(data=in.div$Tax_Stress, aes(x=X, y=Y, hjust=x_adjust, vjust=y_adjust, label=text), size = 5)+
+      scale_color_viridis_d(name = col.name)+
+      theme_bw() + theme(axis.title = element_text(size = 13, color = "black"),
+                         axis.text = element_text(size = 11, color = "black"),
+                         axis.ticks = element_line(color = "black"),
+                         panel.border = element_rect(color = "black"),
+                         panel.grid = element_blank(),
+                         panel.background = element_blank())
+  }
+  
+  # Plotting data
+  if(is.numeric(in.meta$Col_Name)){
+    plot[["Phylogenetic"]] = in.div$Phy_Data %>% left_join(in.meta, by = "Site") %>%
+      ggplot(aes(x = NMDS1, y = NMDS2))+
+      geom_point(aes(color = Col_Name), size = 4)+
+      geom_text(data=in.div$Phy_Stress, aes(x=X, y=Y, hjust=x_adjust, vjust=y_adjust, label=text), size = 5)+
+      scale_color_viridis_c(name = col.name)+
+      theme_bw() + theme(axis.title = element_text(size = 13, color = "black"),
+                         axis.text = element_text(size = 11, color = "black"),
+                         axis.ticks = element_line(color = "black"),
+                         panel.border = element_rect(color = "black"),
+                         panel.grid = element_blank(),
+                         panel.background = element_blank())
+  } else {
+    plot[["Phylogenetic"]] = in.div$Phy_Data %>% left_join(in.meta, by = "Site") %>%
+      ggplot(aes(x = NMDS1, y = NMDS2))+
+      geom_point(aes(color = Col_Name), size = 4)+
+      stat_ellipse(aes(color = Col_Name))+
+      geom_text(data=in.div$Phy_Stress, aes(x=X, y=Y, hjust=x_adjust, vjust=y_adjust, label=text), size = 5)+
+      scale_color_viridis_d(name = col.name)+
+      theme_bw() + theme(axis.title = element_text(size = 13, color = "black"),
+                         axis.text = element_text(size = 11, color = "black"),
+                         axis.ticks = element_line(color = "black"),
+                         panel.border = element_rect(color = "black"),
+                         panel.grid = element_blank(),
+                         panel.background = element_blank())
+  }
+  
+  # Return output
+  return(plot)
+  
+}
+```
+
+## Load in data and perform initial cleaning
+This section of code loads in most of the data for analysis, performs some data reorganization, and **importantly** removes duplicate molecular formula from the dataset.
+
+```{r load-in}
+# Set working directory
+setwd("~/Documents/PNNL Analyses/RC2 Null Modeling/")
+# setwd('C:/Users/gara009/Downloads/Updated Scripts and Files-20230626T154736Z-001/Updated Scripts and Files/')
+
+# Load in ICR data
+data = read.csv("Processed_RC2_SPS_11-2021_Data.csv", check.names = F, row.names = 1)
+mol = read.csv("Processed_RC2_SPS_11-2021_Mol.csv", check.names = F, row.names = 1)
+
+# Load in metadata
+meta1 = read.csv("SPS_Sample_Field_Metadata.csv")
+meta2 = read.csv("SPS_Sample_IGSN-Mapping.csv", skip = 1) %>% dplyr::select(Site_ID = 'Locality', Location = 'Physiographic_Feature_Name' )%>% distinct()
+
+meta = merge(meta1, meta2, by = 'Site_ID')  
+rm(meta1, meta2)
+
+# Adjusting column name
+colnames(meta) = gsub("Sample_Name", "Site", colnames(meta))
+colnames(meta) = gsub("Site_ID", "ID", colnames(meta))
+
+# Adding missing Yakima River data
+meta$Location[is.na(meta$Location)] = "Yakima River"
+
+# Convert data to presence/absence
+data[data > 0] = 1
+
+# Selecting only assigned formulas
+data = data[!is.na(mol$MolForm),]
+mol = mol[!is.na(mol$MolForm),]
+
+# removing duplicate molecular formulas from the data object
+data$MolForm = mol$MolForm # adding molform data
+data = aggregate(.~MolForm, data = data, FUN = sum) # merging data
+
+# removing duplicates from mol object
+mol = mol[!duplicated(mol$MolForm),]
+
+# ensuring matching order (which is vital)
+data = data[order(match(data$MolForm, mol$MolForm)),]
+
+# setting row names
+data = data.frame(data, row.names = 1)
+row.names(mol) = mol$MolForm
+
+# resetting to pres/abs
+data[data > 0] = 1
+
+if(!identical(row.names(mol), row.names(data))){
+  stop("Mol. form. matching failed.")
+}
+
+# Generate factors
+factors = data.frame(Sample = colnames(data), Site = gsub("_IC.*$", "", colnames(data)))
+
+# Tweaking the vegetation variable
+meta$Vegetation = case_when(meta$Vegetation == "Shrub; Grass" ~ "Shrub; Grass",
+                            meta$Vegetation == "Broadleaf deciduous tree; Grass" ~ "Broadleaf",
+                            meta$Vegetation == "Needleleaf evergreen tree; Broadleaf deciduous tree" ~ "Needleleaf",
+                            meta$Vegetation == "Broadleaf deciduous tree; Shrub" ~ "Broadleaf",
+                            meta$Vegetation == "Broadleaf evergreen tree; Grass" ~ "Broadleaf",
+                            meta$Vegetation == "Needleleaf evergreen tree; Shrub" ~ "Needleleaf",
+                            meta$Vegetation == "Broadleaf deciduous tree" ~ "Broadleaf")
+
+# Matching order between meta and data
+if(!identical(unique(factors$Site), meta$Site)){
+  meta = meta[match(unique(factors$Site),meta$Site),]
+}
+
+
+
+```
+
+## Merge FTICR-MS data
+The code within this section combines all of the data collected from a given site.
+
+```{r merge-data}
+### Data management
+# Unique sites and counts
+uniq.site = unique(factors$Site)
+uniq_n = length(uniq.site)
+
+# Generate object to store merged data
+merge.data = data.frame(matrix(nrow = nrow(data), ncol = uniq_n, 
+                        dimnames = list(row.names(data), uniq.site)))
+
+# Loop through sites
+for(i in 1:uniq_n){
+  # Select sites
+  w = which(factors$Site %in% uniq.site[i])
+  
+  # Create temporary object
+  merge.data[,i] = rowSums(data[,w])
+}
+
+# Combining sites where a peak is in 3 samples
+data = merge.data; data[data < 3] = 0
+mol = mol[-which(rowSums(data) == 0),]
+data = data[-which(rowSums(data) == 0),]
+
+# Ensuring presence/absence
+data[data > 0] = 1
+
+# Ensuring that data is correctly ordered
+data = data[,order(colnames(data))]
+
+# Writing cleaned data for bNTI
+write.csv(data, "Processed_RC2_SPS_11-2021_Data_Clean.csv", quote = F)
+write.csv(mol, "Processed_RC2_SPS_11-2021_Mol_Clean.csv", quote = F)
+
+# Clean-up
+rm(factors, merge.data, w, i)
+
+```
+
+## Parse NHD+ geospatial data and match with metadata
+The variables exported from NHD+ are distributed across a couple files. Here, we are merging the data from those various files and ensuring cross-compatibility with the rest of our data.
+
+```{r clean-NHDplus-data}
+# List geospatial data
+geo.files = list.files(path = "Geospatial Data/", pattern = "updated", full.names = T)
+
+# Load in each geospatial data file and merge
+geospat = read.csv(geo.files[1]) %>% select(-COMID)# Load initial file to append to
+
+if(length(grep("\\xa0", geospat$site_ID, perl = T)) > 0){
+  geospat$site_ID = gsub("\\xa0", "", geospat$Site_ID, perl = T)
+} # removes a unique character that can occur during export
+
+if(length(which(duplicated(geospat$site_ID))) > 0){
+  geospat = geospat[!duplicated(geospat$Site_ID),]
+} # duplicates seem to be present (need to check)
+
+for(f in geo.files[-1]){
+  temp = read.csv(f) %>% select(-COMID)
+  
+  if(length(grep("\\xa0", temp$site_ID, perl = T)) > 0){
+    temp$site_ID = gsub("\\xa0", "", temp$Site_ID, perl = T)
+  }
+  
+  if(length(which(duplicated(temp$Site_ID))) > 0){
+    temp = temp[!duplicated(temp$Site_ID),]
+  } 
+  
+  geospat = geospat %>% left_join(temp, by = "Site_ID")
+} # Loop through and load data
+
+# Selecting parameters of interest
+geospat = geospat %>% select(Site_ID, CAT_AET2015_ANN, TOT_AET2015_ANN, CAT_PET2015_ANN, TOT_PET2015_ANN, CAT_PPT2015_ANN, TOT_PPT2015_ANN, 
+                             CAT_TAV2015_ANN, TOT_TAV2015_ANN, CAT_CONTACT, TOT_CONTACT, CAT_RECHG, TOT_RECHG, CAT_urban16, TOT_urban16, 
+                             CAT_forest16, TOT_forest16, CAT_wetland16, TOT_wetland16, CAT_agrc16, TOT_agrc16, CAT_shrub16, TOT_shrub16,
+                             CAT_BASIN_AREA, TOT_BASIN_AREA, Stream_order)
+
+# Clean up site ID names
+geospat$site_ID = gsub("\\xa0", "", geospat$Site_ID, perl = T)
+
+# Merging geospatial data into meta data
+meta = meta %>% left_join(geospat, by = c("ID" = "Site_ID"))
+
+# Change names
+colnames(meta) = gsub("Stream_order", "Stream_Order", colnames(meta))
+meta$Stream_Order = factor(meta$Stream_Order, levels = c("2", "3", "4", "5", "6", "7"))
+
+# Creating log-based alternatives (for correlations)
+meta = meta %>% mutate(TOT_BASIN_AREA_LOG = log(TOT_BASIN_AREA, base = 10),
+                       TOT_urban16_sqrt = sqrt(TOT_urban16),
+                       TOT_forest16_sqrt = sqrt(TOT_forest16),
+                       TOT_wetland16_sqrt = sqrt(TOT_wetland16),
+                       TOT_agrc16_sqrt = sqrt(TOT_agrc16),
+                       TOT_shrub16_sqrt = sqrt(TOT_shrub16))
+
+# Clean up
+rm(geospat, f, geo.files)
+
+```
+
+
+## Analyzing geospatial variables
+In this section, we are looking at the geospatial variables apart from the other metrics. This will help us identify co-correlated patterns and help us manage our downstream interpretations. Additionally, the PCA will help us consolidate coordinated geospatial variables into a single axes with which we can correlate diversity metrics (e.g., bNTI, alpha diversity, etc.).
+
+```{r geospatial-analysis, fig.width=15, fig.height=15, warning=F}
+# Plotting co-correlations
+supp.fig.1a = meta %>% select(TOT_AET2015_ANN, TOT_PET2015_ANN, TOT_PPT2015_ANN, 
+                TOT_TAV2015_ANN, TOT_CONTACT, TOT_RECHG, TOT_urban16, 
+                TOT_forest16, TOT_wetland16, TOT_agrc16, TOT_shrub16,
+                TOT_BASIN_AREA, Stream_Order) %>%
+  rename(`Actual Evapo.` = TOT_AET2015_ANN,
+         `Potent. Evapo.`  = TOT_PET2015_ANN,
+         `Precip.`  = TOT_PPT2015_ANN,
+         `Avg. Temp.`  = TOT_TAV2015_ANN,
+         `Contact`  = TOT_CONTACT,
+         `Recharge`  = TOT_RECHG,
+         `Urban %`  = TOT_urban16,
+         `Forest %`  = TOT_forest16,
+         `Wetland %`  = TOT_wetland16,
+         `Agric. %`  = TOT_agrc16,
+         `Shrub %`  = TOT_shrub16,
+         `Basin Area`  = TOT_BASIN_AREA,
+         `Stream Order`  = Stream_Order) %>%
+  ggpairs(lower = list(continuous = "smooth_lm"), progress = F)
+
+# Generating PCA
+pca = meta %>% select(Site, TOT_AET2015_ANN, TOT_PET2015_ANN, TOT_PPT2015_ANN, 
+                      TOT_TAV2015_ANN, TOT_CONTACT, TOT_RECHG, TOT_urban16, 
+                      TOT_forest16, TOT_wetland16, TOT_agrc16, TOT_shrub16,
+                      TOT_BASIN_AREA) %>%
+  rename(`Actual Evapo.` = TOT_AET2015_ANN,
+         `Potent. Evapo.`  = TOT_PET2015_ANN,
+         `Precip.`  = TOT_PPT2015_ANN,
+         `Avg. Temp.`  = TOT_TAV2015_ANN,
+         `Contact`  = TOT_CONTACT,
+         `Recharge`  = TOT_RECHG,
+         `Urban %`  = TOT_urban16,
+         `Forest %`  = TOT_forest16,
+         `Wetland %`  = TOT_wetland16,
+         `Agric. %`  = TOT_agrc16,
+         `Shrub %`  = TOT_shrub16,
+         `Basin Area`  = TOT_BASIN_AREA) # Pulling out variables of interest
+pca = data.frame(pca, row.names = 1, check.names = F) %>% scale() %>% prcomp()
+
+# Selecting plot objects for the PCA
+scores.obj = data.frame(Site = row.names(pca$x), pca$x)
+arrow.obj = data.frame(Variable = row.names(pca$rotation), pca$rotation*7)
+signif.obj = summary(pca)$importance
+
+# Plotting the PCA
+supp.fig.1b = scores.obj %>% left_join(meta, by = "Site") %>%
+  ggplot(aes(x = PC1, y = PC2))+
+  geom_vline(xintercept = 0, lty = 2, lwd = 0.5)+
+  geom_hline(yintercept = 0, lty = 2, lwd = 0.5)+
+  geom_point(aes(fill = Location), shape = 21, size = 5, color = "black")+
+  geom_segment(data = arrow.obj, aes(x = 0, xend = PC1, y = 0, yend = PC2), 
+               color = "blue", lwd = 0.5, arrow = arrow(length = unit(0.3, "cm")))+
+  geom_text_repel(data = arrow.obj, aes(x = PC1, y = PC2,
+                                        label = Variable), color = "blue")+
+  xlab(paste0("PC1 (", round(signif.obj[2,1]*100, digits = 2), "%)"))+
+  ylab(paste0("PC2 (", round(signif.obj[2,2]*100, digits = 2), "%)"))+
+  guides(fill = guide_legend(ncol = 1))+
+  scale_fill_viridis_d(option = "magma")+
+  theme_bw() + theme(text = element_text(size = 12),
+                     axis.title = element_text(color = "black", size = 14),
+                     axis.text = element_text(color = "black"),
+                     axis.ticks = element_line(color = "black"),
+                     panel.border = element_rect(size = 1, color = "black"),
+                     panel.background = element_blank(),
+                     panel.grid = element_blank())
+
+# Storing scores
+colnames(scores.obj) = gsub("^", "Geospatial ", colnames(scores.obj))
+meta = meta %>% left_join(scores.obj, by = c("Site" = "Geospatial Site"))
+
+# Tabulating loadings/variances
+load.var = cor(x = meta %>% select(TOT_AET2015_ANN, TOT_PET2015_ANN, TOT_PPT2015_ANN, 
+                                   TOT_TAV2015_ANN, TOT_CONTACT, TOT_RECHG, TOT_urban16, 
+                                   TOT_forest16, TOT_wetland16, TOT_agrc16, TOT_shrub16,
+                                   TOT_BASIN_AREA),
+               y = pca$x, method = "pearson")^2
+
+# Listing correlations for the first 3 PCs
+load.var[,1:3]
+
+rm(pca, scores.obj, arrow.obj, signif.obj)
+
+```
+
+After exploring the ways to easily replicate the output from ggpairs allowing me to merge the plot with normal ggplot outputs for way too long, I'm going to merge these plots outside of R and just print them here.
+
+```{r supplemental-figure-1a, fig.width=15, fig.height=15}
+supp.fig.1a
+ggsave("Figures/Supplemental_Figure_1a.pdf", supp.fig.1a, height = 15, width = 15)
+```
+```{r supplemental-figure-1bf, fig.width=6, fig.height=5}
+supp.fig.1b
+ggsave("Figures/Supplemental_Figure_1b.pdf", supp.fig.1b, height = 7, width = 9.5)
+```
+
+Looking at scatter plots, we can see quite a few correlations (expected ones like PET, AET, and TAV). The PCA points to the first three components overwhelmingly capturing much of the variation (73.38%) across our geospatial variables. Specifically, PC1 variation is predominantly explained by PET (>95%), TAV (>94%), PPT (>91%), recharge (>83%), forest coverage (>82%), and contact time (>67%). PC2 is explained by wetland coverage (>52%), basin area (>47%), agriculture coverage (>40%), and urban coverage (>34%). Lastly, PC3 captures variability in shrub coverage (>37%) and urban coverage (>27%).
+
+
+## Parsing geochemistry data
+This chunk of code is designed to import geochemical data from the data package available on ESS-DIVE.
+
+```{r clean-geochem-data, fig.width=7, fig.height=6, results=F, message=F, warning=F}
+# Load in geochemistry
+geochem = read.csv("Geochemistry Data/v3_SPS_Water_Sample_Data_Summary.csv", skip = 2)
+
+# Delete unnecessary rows and columns
+geochem = geochem[-1:-11,-1]
+geochem = geochem[,-2:-7]
+geochem = geochem[-nrow(geochem),]
+
+# Set row names and clear column
+row.names(geochem) = gsub("_Water", "", geochem[,1]); geochem = geochem[,-1]
+
+# Remove unnecessary columns
+geochem = geochem[,-which(colnames(geochem) %in% c("Material", "Mean_Missing_Reps"))]
+
+# Set -9999 to NA
+geochem[geochem == -9999] = NA
+
+# # Remove columns with too many NAs
+# w = which(apply(geochem, 2, function(x) length(which(is.na(x)))) > nrow(geochem)/2)
+# geochem = geochem[,-w]
+# 
+# rm(w)
+
+# Converting remaining NaN-values to 0 as it looks like they were below detection
+geochem[is.na(geochem)] = 0
+
+# Converting columns to numeric
+geochem.row = row.names(geochem)
+geochem = as.data.frame(apply(geochem, 2, as.numeric))
+row.names(geochem) = geochem.row; rm(geochem.row)
+
+# Plotting geochemistry PCA
+pca = prcomp(scale(geochem))
+
+# Selecting plot objects for the PCA
+scores.obj = data.frame(Site = row.names(pca$x), pca$x) %>% left_join(meta, by = "Site")
+arrow.obj = data.frame(Variable = row.names(pca$rotation), pca$rotation*10) %>%
+  mutate(Variable = case_when(Variable == "X00530_TSS_mg_per_L" ~ "TSS",
+                              Variable == "Mean_00691_DIC_mg_per_L_as_C" ~ "DIC",
+                              Variable == "X00940_Cl_mg_per_L" ~ "Cl",
+                              Variable == "X00945_SO4_mg_per_L_as_SO4" ~ "SO4",
+                              Variable == "X71851_NO3_mg_per_L_as_NO3" ~ "NO3",
+                              Variable == "X71856_NO2_mg_per_L_as_NO2" ~ "NO2",
+                              Variable == "Mean_00681_NPOC_mg_per_L_as_C" ~ "NPOC",
+                              Variable == "Mean_00602_TN_mg_per_L_as_N" ~ "TN"  ))
+signif.obj = summary(pca)$importance
+
+# Plotting the PCA
+supp.fig.2a = scores.obj %>%
+  ggplot(aes(x = PC1, y = PC2))+
+  geom_vline(xintercept = 0, lty = 2, lwd = 0.5)+
+  geom_hline(yintercept = 0, lty = 2, lwd = 0.5)+
+  geom_point(aes(fill = Location), shape = 21, size = 5, color = "black")+
+  geom_segment(data = arrow.obj, aes(x = 0, xend = PC1, y = 0, yend = PC2), 
+               color = "blue", lwd = 0.5, arrow = arrow(length = unit(0.3, "cm")))+
+  geom_text_repel(data = arrow.obj, aes(x = PC1, y = PC2, 
+                                        label = Variable), color = "blue")+
+  xlab(paste0("PC1 (", round(signif.obj[2,1]*100, digits = 2), "%)"))+
+  ylab(paste0("PC2 (", round(signif.obj[2,2]*100, digits = 2), "%)"))+
+  guides(fill = guide_legend(ncol = 1))+
+  scale_fill_viridis_d(option = "magma")+
+  theme_bw() + theme(text = element_text(size = 12),
+                     axis.title = element_text(color = "black", size = 14),
+                     axis.text = element_text(color = "black"),
+                     axis.ticks = element_line(color = "black"),
+                     panel.border = element_rect(size = 1, color = "black"),
+                     panel.background = element_blank(),
+                     panel.grid = element_blank())
+
+# Clean up
+rm(scores.obj, arrow.obj, signif.obj, pca)
+
+```
+
+
+## Geochemistry compared to geospatial data
+As a first pass, we decided it was a good idea to see how the specific geochemical variables varied in conjunciton with geospatial variables. This won't necessary provide any striking conclusions on its own, but should help disentangle some potential patterns.
+
+```{r plotting-geochem-by-meta, fig.width=8, fig.height=6, results=F, message=F, warning=F}
+# Plotting by stream order
+supp.fig.2b = geochem %>% mutate(Site = row.names(geochem)) %>% 
+  gather(Variable, Concentration, -Site) %>%
+  mutate(Variable = case_when(Variable == "X00530_TSS_mg_per_L" ~ "TSS",
+                              Variable == "Mean_00691_DIC_mg_per_L_as_C" ~ "DIC",
+                              Variable == "X00940_Cl_mg_per_L" ~ "Cl",
+                              Variable == "X00945_SO4_mg_per_L_as_SO4" ~ "SO4",
+                              Variable == "X71851_NO3_mg_per_L_as_NO3" ~ "NO3",
+                              Variable == "X71856_NO2_mg_per_L_as_NO2" ~ "NO2",
+                              Variable == "Mean_00681_NPOC_mg_per_L_as_C" ~ "NPOC",
+                              Variable == "Mean_00602_TN_mg_per_L_as_N" ~ "TN"  )) %>%
+  left_join(meta, by = "Site") %>%
+  ggplot(aes(x = Stream_Order, y = Concentration, group = Stream_Order))+
+  geom_boxplot() + ylab("Concentration (mg/L)")+
+  facet_wrap(Variable~., ncol = 3, scales = "free_y")+
+  stat_compare_means(method = "kruskal.test", label = "p.signif", vjust = 1, 
+                     aes(x = 4), color = "#cc0000ff")+
+  xlab("Stream Order") + theme_bw()+
+  theme(text = element_text(size = 12),
+                     axis.title = element_text(color = "black", size = 14),
+                     axis.text = element_text(color = "black"),
+                     axis.ticks = element_line(color = "black"),
+                     panel.border = element_rect(size = 1, color = "black"),
+                     panel.background = element_blank(),
+                     panel.grid = element_blank())
+
+# Reconfirming meta order
+if(!identical(meta$Site, row.names(geochem))){
+  meta = meta[order(meta$Site),]
+  
+  if(!identical(meta$Site, row.names(geochem))){
+    stop("Some sort of wizardry caused the sample order to be incorrect - please check that out.")
+  }
+}
+
+# Correlating metadata and geochemistry
+cor.val = cor(geochem[!is.na(meta$TOT_BASIN_AREA_LOG),], 
+              meta[!is.na(meta$TOT_BASIN_AREA_LOG),c("TOT_BASIN_AREA_LOG", "TOT_PPT2015_ANN", "TOT_urban16", 
+                                                     "TOT_forest16", "TOT_wetland16", "TOT_agrc16",
+                                                     "TOT_shrub16", "Geospatial PC1", "Geospatial PC2",
+                                                     "Geospatial PC3")],
+              method = "spearman")
+geo.var = row.names(cor.val)[-which(rowMaxs(abs(cor.val), value = T) < 0.5)] # https://journals.lww.com/anesthesia-analgesia/fulltext/2018/05000/correlation_coefficients__appropriate_use_and.50.aspx
+meta.var = colnames(cor.val)[-which(colMaxs(abs(cor.val), value = T) < 0.5)]
+
+# Plotting correlations with r-value > 0.5
+supp.fig.2c = geochem[,geo.var] %>% 
+  mutate(Site = row.names(geochem)) %>%
+  gather(Geochem, Geochem_Value, -Site) %>% 
+  mutate(Geochem = case_when(Geochem == "X00530_TSS_mg_per_L" ~ "TSS (mg/L)",
+                              Geochem == "Mean_00691_DIC_mg_per_L_as_C" ~ "DIC (mg/L)",
+                              Geochem == "X00940_Cl_mg_per_L" ~ "Cl (mg/L)",
+                              Geochem == "X00945_SO4_mg_per_L_as_SO4" ~ "SO4 (mg/L)",
+                              Geochem == "X71851_NO3_mg_per_L_as_NO3" ~ "NO3 (mg/L)",
+                              Geochem == "X71856_NO2_mg_per_L_as_NO2" ~ "NO2 (mg/L)",
+                              Geochem == "Mean_00681_NPOC_mg_per_L_as_C" ~ "NPOC (mg/L)",
+                              Geochem == "Mean_00602_TN_mg_per_L_as_N" ~ "TN (mg/L)"  ))  %>%
+  left_join(meta[,c("Site", meta.var)], by = "Site") %>%
+  rename(`Basin Area` = TOT_BASIN_AREA_LOG,
+         `Precip.`  = TOT_PPT2015_ANN,
+         `Forest %`  = TOT_forest16,
+         `Agric. %`  = TOT_agrc16,
+         `Shrub %`  = TOT_shrub16) %>%
+  gather(Geospat, Geospat_Value, -Site, -Geochem, -Geochem_Value) %>%
+  ggplot(aes(x = Geospat_Value, Geochem_Value))+
+  geom_point()+facet_grid(Geochem~Geospat, scales = "free")+
+  xlab("Geospatial Value")+ylab("Concentration (mg/L)")+
+  geom_smooth(method = "gam")+
+  stat_cor(method = "spearman", cor.coef.name = "rho", label.sep = "\n", 
+           color = "#cc0000ff")+
+  theme_bw()+theme(text = element_text(size = 12),
+                     axis.title = element_text(color = "black", size = 14),
+                     axis.text = element_text(color = "black"),
+                     axis.ticks = element_line(color = "black"),
+                     panel.border = element_rect(size = 1, color = "black"),
+                     panel.background = element_blank(),
+                     panel.grid = element_blank())
+```
+
+```{r supplemental-figure-2, fig.width=12, fig.height=12, results=F, message=F, warning=F}
+supp.fig.2 = grid.arrange(ggarrange(supp.fig.2a, labels = "A"),
+                          ggarrange(supp.fig.2b, labels = "B"), 
+                          ggarrange(supp.fig.2c, labels = "C"), 
+                          layout_matrix = rbind(c(1,1,3,3),
+                                                c(2,2,3,3)))
+ggsave("Figures/Supplemental_Figure_2.pdf", supp.fig.2, width = 15, height = 12)
+rm(supp.fig.2a, supp.fig.2b, supp.fig.2c)
+  
+```
+
+Here we are just looking at straightforward geochemical vs. geospatial patterns. Starting with stream order given that pre-analysis indicated it being a significant variable, we can see that some geochemical variables definitely fluctuate as stream order increases though there are not absolutely consistent patterns. Based on these figures, it is immediately apparent that annual precipitation is significantly related to every geochemical parameter plotted here, indicating a fairly important role. However, I want to emphasize that forest coverage % is also highly correlated with these geochemical variables and, in turn, with precipitation. In my opinion though, the relationships with agriculture coverage % is pretty exciting in that we have what looks like a threshold effect (e.g., once a certain amount of agricultural coverage has been reached, we see some precipitous increases in geochemical concentrations).
+
+
+## Overall Van Krevelen Diagrams
+Just a basic VK diagram to help us orient ourselves to the general molecular landscape. While this is before the plot has been generated, the overarching molecular landscape within this data appears to be consistent with studies in other rivers (e.g., we see an enrichment of CRAM-like molecular formulas).
+
+```{r overall-vk, fig.width=6, fig.height=5}
+# Generate VK plot
+generate.vk(mol)
+```
+
+
+## Alpha-diversity
+Various alpha diversity analyses to determine whether various metadata explain environmental metabolomic differences.
+
+```{r alpha-div-vs-geospatial, results=T, message=F, warning=F}
+# Load in MCD
+mcd = read.tree("RC2_SPS_03-2022_MCD_UPGMA.tre")
+
+# Matching data and tree
+phylo = match.phylo.data(mcd, data)
+
+# Setting objects
+data = phylo$data
+mcd = phylo$phy
+rm(phylo)
+
+# Calculate alpha diversity
+alpha.div = alpha.diver(data, mcd)
+
+# Correlating all geospatial variables against alpha diversity
+cor.spat = meta %>% select(Site, TOT_AET2015_ANN, TOT_PET2015_ANN, TOT_PPT2015_ANN, 
+                TOT_TAV2015_ANN, TOT_CONTACT, TOT_RECHG, TOT_urban16_sqrt, 
+                TOT_forest16_sqrt, TOT_wetland16_sqrt, TOT_agrc16_sqrt, TOT_shrub16_sqrt,
+                TOT_BASIN_AREA_LOG, `Geospatial PC1`, `Geospatial PC2`, 
+                `Geospatial PC3`) # Create correlation object
+
+geo.stats = NULL
+
+for(curr.met in unique(alpha.div$variable)){
+  temp.alpha = alpha.div[which(alpha.div$variable %in% curr.met),]
+  temp.alpha = temp.alpha[order(temp.alpha$Site),]
+  
+  if(!identical(cor.spat$Site, temp.alpha$Site)){
+    stop("The order between alpha diversity and geospatial data is wrong")
+  }
+  
+  temp.alpha = temp.alpha[!is.na(cor.spat[,2]),]
+  temp.cor = cor.spat[!is.na(cor.spat[,2]),]
+
+  for(i in 2:ncol(cor.spat)){
+    temp.res = rcorr(x = temp.cor[,i], y = temp.alpha$value, type = "spearman")
+    temp.out = data.frame(Correlation = paste0(colnames(temp.cor)[i], " vs. ", curr.met),
+                          Geospatial_Variable = colnames(temp.cor)[i],
+                          Alpha_Div_Metric = curr.met,
+                          rho = temp.res$r[1,2], p_value = temp.res$P[1,2])
+    geo.stats = rbind(geo.stats, temp.out)
+  }
+  
+  rm(temp.alpha, temp.cor, temp.res, temp.out)
+}
+
+# Adjust p-value
+geo.stats$p_value = p.adjust(geo.stats$p_value, method = "fdr")
+
+# Filter out insigniificant comparisons
+geo.stats = geo.stats %>% filter(p_value < 0.05)
+
+# Print significant geospatial variables
+knitr::kable(geo.stats) %>%
+  kable_styling()
+
+```
+
+```{r alpha-div-vs-geocehmical, results=T, message=F, warning=F}
+# Correlating all geospatial variables against alpha diversity
+cor.geo = geochem %>% mutate(Site = row.names(geochem)) %>%
+  select(Site, colnames(geochem))
+
+geo.stats = NULL
+
+for(curr.met in unique(alpha.div$variable)){
+  temp.alpha = alpha.div[which(alpha.div$variable %in% curr.met),]
+  temp.alpha = temp.alpha[order(temp.alpha$Site),]
+  
+  if(!identical(cor.geo$Site, temp.alpha$Site)){
+    stop("The order between alpha diversity and geospatial data is wrong")
+  }
+
+  for(i in 2:ncol(cor.geo)){
+    temp.res = rcorr(x = cor.geo[,i], y = temp.alpha$value, type = "spearman")
+    temp.out = data.frame(Correlation = paste0(colnames(cor.geo)[i], " vs. ", curr.met),
+                          Geospatial_Variable = colnames(cor.geo)[i],
+                          Alpha_Div_Metric = curr.met,
+                          rho = temp.res$r[1,2], p_value = temp.res$P[1,2])
+    geo.stats = rbind(geo.stats, temp.out)
+  }
+  
+  rm(temp.alpha, temp.cor, temp.res, temp.out)
+}
+
+# Adjust p-value
+geo.stats$p_value = p.adjust(geo.stats$p_value, method = "fdr")
+
+# Filter out insigniificant comparisons
+geo.stats = geo.stats %>% filter(p_value < 0.05)
+
+# Print significant geospatial variables
+knitr::kable(geo.stats) %>%
+  kable_styling()
+
+```
+
+```{r alpha-div-plots, fig.width=13, fig.height=8, results=F, message=F, warning=F}
+# Generate alpha diversity plots for significant geospatial data
+plot1.so = plot.alpha.diver(alpha.div, meta, "Stream_Order", 
+                            "Formulas") # Included given that it is factorial
+plot2.pc = plot.alpha.diver(alpha.div, cor.spat, "Geospatial PC1", 
+                            "Formulas") # PET and TAV are co-linear
+plot3.con = plot.alpha.diver(alpha.div, cor.spat, "TOT_CONTACT", 
+                             "Formulas")
+plot4.ba = plot.alpha.diver(alpha.div, cor.spat, "TOT_BASIN_AREA_LOG", 
+                            "Formulas")
+plot5.ag = plot.alpha.diver(alpha.div, cor.spat, "TOT_agrc16_sqrt", 
+                            "Formulas")
+plot7.sh = plot.alpha.diver(alpha.div, cor.spat, "TOT_shrub16_sqrt", 
+                            "Formulas")
+
+# Generate alpha diversity plots for significant geochemical variables
+plot8.cl = plot.alpha.diver(alpha.div, cor.geo, "X00940_Cl_mg_per_L", 
+                            "Formulas")
+plot9.oc = plot.alpha.diver(alpha.div, cor.geo, "Mean_00681_NPOC_mg_per_L_as_C", 
+                            "Formulas")
+plot10.tn = plot.alpha.diver(alpha.div, cor.geo, "Mean_00602_TN_mg_per_L_as_N", 
+                             "Formulas")
+plot11.tss = plot.alpha.diver(alpha.div, cor.geo, "X00530_TSS_mg_per_L", 
+                              "Formulas")
+plot12.no3 = plot.alpha.diver(alpha.div, cor.geo, "X71851_NO3_mg_per_L_as_NO3", 
+                              "Formulas")
+
+```
+
+```{r figure-1, , fig.width=3.5, fig.height=5, results=F, message=F, warning=F}
+# Merge figure 1 (e.g., stream order/basin area vs. formulas)
+fig.1 = ggarrange(plot1.so$Plot + xlab("Stream Order") + ylab("# of Formulas")+ 
+                    ylim(1900, 3300) + 
+                    theme(axis.text.x = element_text(angle = 0 , hjust = 0.5)),
+                  plot4.ba$Plot + xlab("log10(Basin Area)") + ylab("# of Formulas")+ 
+                    ylim(1900, 3300),
+                  labels = c("A", "B"),
+                  nrow = 2, ncol = 1)
+
+fig.1
+
+ggsave("Figures/Figure_1.pdf", fig.1, width = 3.5, height = 5)
+
+```
+
+```{r figure-2af, fig.width=8, fig.height=8, results=F, message=F, warning=F}
+# Combine plots
+fig.2 = ggarrange(plot2.pc$Plot + xlab("Geospatial PC1") + 
+                    ylab("# of Formulas")+ 
+                    ylim(1900, 3300),
+                  plot3.con$Plot + xlab("Contact") + 
+                    ylab("# of Formulas")+ 
+                    ylim(1900, 3300),
+                  plot5.ag$Plot + xlab("sqrt(Agric.) (%)") + 
+                    ylab("# of Formulas")+ 
+                    ylim(1900, 3300),
+                  plot8.cl$Plot + xlab("Chloride (mg/L)") + 
+                    ylab("# of Formulas")+
+                    scale_x_log10()+
+                    ylim(1900, 3300),
+                  plot9.oc$Plot + xlab("NPOC (mg C/L)") + 
+                    ylab("# of Formulas")+
+                    scale_x_log10()+ 
+                    ylim(1900, 3300),
+                  plot11.tss$Plot + xlab("TSS (mg/L)") + 
+                    ylab("# of Formulas")+
+                    scale_x_log10()+
+                    ylim(1900, 3300), nrow = 3, ncol = 2,
+                  labels = c("A", "B", "C", "D", "E", "F"))
+
+fig.2
+
+rm(list = ls(pattern = "^plot[0-9].*"))
+
+```
+
+Wow - there's a lot of data to discuss here but I want to try to keep it short and sweet. First, we see some strong increases in the number of molecular formulas associated with larger stream orders and larger basin areas (these appear to be the strongest relationships with basin area have a rho > 0.6, p < 0.001) potentially suggesting that larger integration areas lead to greater DOM diversity. Nearly tied with each other and having a rho > 0.5, agricultural coverage and NPOC concentrations are fairly significantly related to the number of formulas; these relationships point to both a larger role for land use than just agriculture (e.g., when agr. goes up, others go down) but also points to a potential role for NPOC in DOM diversity (a pattern that we have observed elsewhere).
+
+
+## Mutlivariate DOM composition vs. geospatial/geochemical relationships
+Multivariate comparisons will enable us to detect consistencies across two large datasets - here, we are looking how the FTICR-MS-based DOM composition data relates to both geospatial and geochemical datasets. In order to accomplish these comparisons, we are using a permuted Procrustes test in order to see whether one dataset is a reprojection of the other.
+
+```{r, beta-diversity, results=T, message=F, warning=F}
+# Generate taxonomic distance matrix
+d = vegdist(t(data), method = "jaccard")
+
+# Generate phylogenetic distance matrix
+pd = comdistnt_fast(t(data), cophenetic(mcd), abundance.weighted = F, exclude.conspecifics = F)
+
+# Create geospatial and geochemical distance matrices
+spat.dist = meta %>% select(TOT_AET2015_ANN, TOT_PET2015_ANN, TOT_PPT2015_ANN, 
+                TOT_TAV2015_ANN, TOT_CONTACT, TOT_RECHG, TOT_urban16_sqrt, 
+                TOT_forest16_sqrt, TOT_wetland16_sqrt, TOT_agrc16_sqrt, TOT_shrub16_sqrt,
+                TOT_BASIN_AREA_LOG) %>% vegdist(method = "euclidean")
+geo.dist = geochem %>% vegdist(method = "euclidean")
+
+# Permuted Procrustes analysis for tax/phy distances
+tax.spat.prot = protest(d, spat.dist)
+phy.spat.prot = protest(pd, spat.dist)
+
+tax.geo.prot = protest(d, geo.dist)
+phy.geo.prot = protest(pd, geo.dist)
+
+# Printing results
+tax.spat.prot
+phy.spat.prot
+tax.geo.prot
+phy.geo.prot
+
+```
+
+As suggested by patterns observed with the alpha diversity data, we see that the geospatial data better captures the multivariate patterns of the DOM data than the geochemical data. We have decided against generating any NMDS/ordiations in favor of utilizing more aggregated analyses like an RDA.
+
+## Generating a merged RDA
+Within this section, we are combining all of the variables (e.g., both the geochemical and the geospatial data) and evaluating where and how these variables constrain DOM variation across the entire dataset. Given that this graph is much more informative than a standard Jaccard distance-based NMDS, we are using the RDA to visualize beta-diversity patterns as well (the analogy isn't perfect but helps keep the story flowing).
+
+```{r redundancy-analysis-geochem-geospat, fig.height=6, fig.width=8, message=F, warning=F, results=F}
+# Selecting geospatial metadata
+var.of.interest = c("Vegetation", "TOT_BASIN_AREA_LOG", "TOT_PPT2015_ANN",
+                    "TOT_urban16_sqrt", "TOT_forest16_sqrt", "TOT_wetland16_sqrt",
+                    "TOT_agrc16_sqrt", "TOT_shrub16_sqrt") # Stream order was dropped due to colinearity
+rda.meta = meta[,c("Site", var.of.interest)]
+
+
+# Selecting geochemical metadata
+rda.geo = data.frame(Site = row.names(geochem), geochem)
+
+
+# Merging metdata and geochem
+rda.data = rda.meta %>% left_join(rda.geo, by = "Site")
+rda.data = data.frame(rda.data, row.names = 1)
+rm(rda.meta, rda.geo)
+
+# Initial RDA
+db.rda.0 = capscale(t(data)~1, data = rda.data, distance = "jaccard")
+db.rda = capscale(t(data)~., data = rda.data, distance = "jaccard")
+R2adj = RsquareAdj(db.rda)$adj.r.squared
+
+# Variable selection
+vif.cca(db.rda) # Stream Order is highly co-linear (co-unimodal?), so we're dropping it
+sel.db.rda = ordiR2step(db.rda.0, scope = formula(db.rda), R2scope = R2adj, direction = "both")
+
+# Generating DOM summary data for visualization
+char = data.frame(Site = colnames(data), NOSC = NA, AI_Mod = NA, DBE = NA, 
+                  N = NA, S = NA, P = NA, stringsAsFactors = F)
+
+for(i in 1:ncol(data)){
+  temp = data[which(data[,i] > 0), i, drop = F] # Need to keep names, looking at columns
+  temp = mol[which(mol$MolForm %in% row.names(temp)),]
+  
+  char$NOSC[i] = mean(temp$NOSC, na.rm = T)
+  char$AI_Mod[i] = mean(temp$AI, na.rm = T)
+  char$DBE[i] = mean(temp$DBE, na.rm = T)
+  char$N[i] = mean(temp$N, na.rm = T)
+  char$S[i] = mean(temp$S, na.rm = T)
+  char$P[i] = mean(temp$P, na.rm = T)
+}
+
+# Selecting plot objects for the RDA
+scores.obj = data.frame(Site = row.names(vegan::scores(sel.db.rda)$sites), 
+                        vegan::scores(sel.db.rda)$sites) %>%
+  left_join(meta, by = "Site") %>% left_join(char, by = "Site")
+
+arrow.obj = data.frame(Variable = row.names(summary(sel.db.rda)$biplot), 
+                       summary(sel.db.rda)$biplot*2) %>%
+  mutate(Variable = case_when(Variable == "Mean_00681_NPOC_mg_per_L_as_C" ~ "NPOC",
+                              Variable == "X00945_SO4_mg_per_L_as_SO4" ~ "Sulfate",
+                              Variable == "TOT_BASIN_AREA_LOG" ~ "log10(Basin Area)",
+                              Variable == "TOT_PPT2015_ANN" ~ "Precip.",
+                              Variable == "TOT_urban16_sqrt" ~ "sqrt(Urban)",
+                              Variable == "TOT_shrub16_sqrt" ~ "sqrt(Shrub)",
+                              Variable == "TOT_forest16_sqrt" ~ "sqrt(Forest)",
+                              Variable == "TOT_agrc16_sqrt" ~ "sqrt(Agric.)",
+                              Variable == "X00530_TSS_mg_per_L" ~ "TSS",
+                              Variable == "Mean_00691_DIC_mg_per_L_as_C" ~ "DIC",
+                              Variable == "Mean_00602_TN_mg_per_L_as_N" ~ "TN"))
+
+# Plotting the optimized RDA
+fig.2h = scores.obj %>%
+  ggplot(aes(x = CAP1, y = CAP2))+
+  geom_vline(xintercept = 0, lty = 2, lwd = 0.5)+
+  geom_hline(yintercept = 0, lty = 2, lwd = 0.5)+
+  geom_point(aes(fill = NOSC), shape = 21, size = 6, color = "black")+
+  geom_segment(data = arrow.obj, aes(x = 0, xend = CAP1, y = 0, yend = CAP2),
+               color = "black", lwd = 0.5, arrow = arrow(length = unit(0.3, "cm")))+
+  geom_text_repel(data = arrow.obj, aes(x = CAP1, y = CAP2,
+                                        label = Variable), color = "black",
+                  size = 6)+
+  scale_fill_viridis_c()+
+  theme_bw() + theme(text = element_text(size = 12),
+                     axis.title = element_text(color = "black", size = 14),
+                     axis.text = element_text(color = "black"),
+                     axis.ticks = element_line(color = "black"),
+                     panel.border = element_rect(size = 1, color = "black"),
+                     panel.background = element_blank(),
+                     panel.grid = element_blank())
+
+```
+
+```{r figure-2-and-stats, fig.height=6, fig.width=13}
+# Plotting the plot
+fig.2 = ggarrange(fig.2, fig.2h, labels = c("", "G"), widths = c(1, 1.4))
+
+fig.2
+
+ggsave("Figures/Figure_2.pdf", fig.2, width = 13, height = 6)
+
+# printing Rsquared
+RsquareAdj(sel.db.rda)
+
+# stats overall
+anova(sel.db.rda)
+
+# stats by axis
+anova(sel.db.rda, by = "axis")
+
+# stats by terms
+anova(sel.db.rda, by = "terms")
+
+```
+
+The combined RDA looks like it explains/constrains a high amount of DOM variability (R2: ~56.9%, Adj. R2: ~43.4%) and consists of some of the important variables that we've seen up to this point (with a couple surprises); this RDA is also significant per a PERMANOVA (Pseudo-F: 4.2044, p = 0.001). Focusing on the axes, PERMANOVA analyses indicate that the first 4 axes (CAP1, CAP2, CAP3, and CAP4) are  significant (p = 0.001 for CAP1, CAP2, and CAP3; p ~ 0.018 for CAP4). Shifting focus to the input variables, we see that NPOC is overwhelmingly the strongest predictor variable (Pseudo-F: 20.37793, p = 0.001); the remaining significant variables are basin area (Pseudo-F: 5.39285, p = 0.001), precipitation (Pseudo-F: 3.68537, p ~ 0.003), TN (Pseudo-F: 4.00797, p ~ 0.002), and sulfate (Pseudo-F: 2.21351, p ~ 0.041). All remaining variables aside from DIC + Forest are trending (p < 0.1). 
+
+In an inverse of the relationships that we observed with the alpha diversity data and even with the multivariate stats, the strong NPOC constraint suggests that carbon concentration may act as a valve that helps mediate the diversity of DOM in a given part of the YRB. However, it is important to highlight that, while weaker, basin area is equally as significant and indicates that some interaction between carbon concentration (e.g., maybe priming, maybe probabilistic) and space (e.g., larger basin area = larger space to integrate) are at play. Of the remaining variables, precipitation and urban coverage make some sense to me (precipitation is largely a proxy for land cover in our dataset and point to an associate of kinds of DOM with land cover) but sulfate is strange to me. My initial guess is that sulfate might be pointing to either some underlying lithological differences across the YRB or could be indicative of land cover inputs not captured by our geospatial data.
+
+
+## Analyzing bNTI patterns
+```{r, betaNTI-geospat-correlation, results=T, message=F, warning=F}
+### Load in bNTI and calculate averages
+# Load in bNTI results
+bnti = as.matrix(as.dist(read.csv("RC2_SPS_MCD_bNTI_999.csv", row.names = 1)))
+
+# Reorder bNTI
+bnti = bnti[order(row.names(bnti)), order(colnames(bnti))]
+bnti[upper.tri(bnti)] = NA
+diag(bnti) = NA
+
+# Plotting overall bNTI
+plot = as.data.frame(bnti) %>%
+  gather(Samples, Values) %>%
+  ggplot(aes(x = Values))+
+  geom_density(fill = "gray")+
+  geom_vline(xintercept = c(-2,2), color = "red", lty = 2)+
+  theme_bw()
+ggsave("Figures/Supplemental_Figure_3a.pdf", plot)
+
+# Looking at overall bNTI
+avg.bnti = as.matrix(as.dist(bnti))
+diag(avg.bnti) = NA
+avg.bnti = data.frame(Site = colnames(avg.bnti), Mean_bNTI = colMeans(avg.bnti, na.rm = T))
+
+# Calculating within group averages for binned basin area
+uniq_so = unique(meta$Stream_Order)
+so.bnti = as.matrix(as.dist(bnti))
+output = NULL
+
+for(i in 1:length(uniq_so)){
+  w = which(meta$Stream_Order %in% uniq_so[i])
+  not.w = which(!meta$Stream_Order %in% uniq_so[i])
+  
+  # For average
+  temp = as.matrix(as.dist(bnti[w,w]))
+  diag(temp) = NA
+  
+  # For absolute
+  so.bnti[w,not.w] = NA
+  so.bnti[not.w,w] = NA
+  
+  output = rbind(output, 
+                data.frame(Site = colnames(temp), Mean_bNTI_within_SO = colMeans(temp, na.rm = T)))
+}
+
+# Merging into mean bNTI object
+avg.bnti = avg.bnti %>% left_join(output, by = "Site")
+rm(uniq_so, temp, output)
+
+# Melt and rename variables
+avg.bnti = melt(avg.bnti, id.vars = "Site") %>% 
+  mutate(Metric = case_when(variable == "Mean_bNTI" ~ "Overall",
+                            variable == "Mean_bNTI_within_SO" ~ "Within Stream Order"))
+
+# Selecting geospatial variables of interest
+cor.spat = meta %>% select(Site, TOT_AET2015_ANN, TOT_PET2015_ANN, TOT_PPT2015_ANN, 
+                TOT_TAV2015_ANN, TOT_CONTACT, TOT_RECHG, TOT_urban16_sqrt, 
+                TOT_forest16_sqrt, TOT_wetland16_sqrt, TOT_agrc16_sqrt, TOT_shrub16_sqrt,
+                TOT_BASIN_AREA_LOG, `Geospatial PC1`, `Geospatial PC2`, `Geospatial PC3`) # Create correlation object (meta data subset)
+row.names(cor.spat) = cor.spat$Site
+
+
+### Correlating all geospatial variables against average bNTI
+geo.stats = NULL # geo.stats == average bNTI correlations
+
+for(curr.met in unique(avg.bnti$variable)){
+  temp.bnti = avg.bnti[which(avg.bnti$variable %in% curr.met),]
+  
+  # Confirm name orders
+  if(!identical(cor.spat$Site, temp.bnti$Site)){
+    stop("The order between average bNTI and geospatial data is wrong")
+  }
+  
+  for(i in 2:ncol(cor.spat)){
+    # Univariate/Spearman
+    temp.res = rcorr(x = cor.spat[,i], y = temp.bnti$value, type = "spearman")
+    temp.out = data.frame(Correlation = paste0(colnames(cor.spat)[i], " vs. ", curr.met),
+                          Geospatial_Variable = colnames(cor.spat)[i],
+                          bNTI_version = curr.met,
+                          rho = temp.res$r[1,2], p_value = temp.res$P[1,2])
+    geo.stats = rbind(geo.stats, temp.out)
+    
+  }
+  
+  rm(temp.bnti, temp.cor, temp.res, temp.out)
+}
+
+# Clean up
+rm(i, curr.met)
+
+# Adjust p-value
+geo.stats$p_value = p.adjust(geo.stats$p_value, method = "fdr")
+
+# Filter out insigniificant comparisons
+geo.stats = geo.stats %>% filter(p_value < 0.05)
+
+# Print significant geospatial variables
+print(unique(geo.stats$Geospatial_Variable))
+
+
+### Correlating all geospatial variables against overall bNTI
+mult.stats = NULL # mult.stats == Mantel-based correlations
+
+for(i in 2:ncol(cor.spat)){
+  if(!identical(row.names(bnti), cor.spat$Site)){
+    stop("The order between bNTI and geospatial data is wrong")
+  }
+
+  # Multivariate/Mantel
+  geo.dist = vegdist(cor.spat[,i, drop = F], method = "euclidean")
+  temp.res = mantel(as.dist(bnti), geo.dist, method = "spearman", permutations = 9999)
+  temp.out = data.frame(bNTI_Version = "Overall",
+                        Geospatial_Variable = colnames(cor.spat)[i],
+                        Mantel_rho = temp.res$statistic, 
+                        p_value = temp.res$signif)
+  mult.stats = rbind(mult.stats, temp.out)
+  
+  # Within Stream Order Mantel
+  temp.res = mantel(as.dist(so.bnti), geo.dist, method = "spearman", permutations = 9999, na.rm = T)
+  temp.out = data.frame(bNTI_Version = "Within Stream Order",
+                        Geospatial_Variable = colnames(cor.spat)[i],
+                        Mantel_rho = temp.res$statistic, 
+                        p_value = temp.res$signif)
+  mult.stats = rbind(mult.stats, temp.out)
+  
+  # Clean up
+  rm(geo.dist, temp.res, temp.out, bnti.dist)
+}
+
+# Print stats
+geo.stats
+mult.stats
+
+# Writing stats
+write.csv(geo.stats, "Figures/Supplemental_Table_1_Average_bNTI_Geospatial_Correlations.csv", quote = F)
+write.csv(mult.stats, "Figures/Supplemental_Table_1_bNTI_Geospatial_Mantel_Correlations.csv", quote = F)
+
+# Calculating non-linear stats for basin area
+stream.bnti = avg.bnti %>% left_join(meta, by = "Site") %>% filter(grepl("Stream", Metric))
+non.lin = gam(stream.bnti$value~s(stream.bnti$TOT_BASIN_AREA_LOG))
+anova(non.lin)
+
+rm(stream.bnti)
+```
+
+```{r, betaNTI-geochem-correlation, results=T, message=F, warning=F}
+### Correlating all geochemical variables against alpha diversity
+cor.geo = geochem %>% mutate(Site = row.names(geochem)) %>%
+  select(Site, colnames(geochem))
+
+geo.stats = NULL
+
+for(curr.met in unique(avg.bnti$variable)){
+  temp.bnti = avg.bnti[which(avg.bnti$variable %in% curr.met),]
+  
+  if(!identical(cor.geo$Site, temp.bnti$Site)){
+    stop("The order between average bNTI and geochemical data is wrong")
+  }
+
+  for(i in 2:ncol(cor.geo)){
+    temp.res = rcorr(x = cor.geo[,i], y = temp.bnti$value, type = "spearman")
+    temp.out = data.frame(Correlation = paste0(colnames(cor.geo)[i], " vs. ", curr.met),
+                          Geospatial_Variable = colnames(cor.geo)[i],
+                          bNTI_version = curr.met,
+                          rho = temp.res$r[1,2], p_value = temp.res$P[1,2])
+    geo.stats = rbind(geo.stats, temp.out)
+  }
+  
+  rm(temp.alpha, temp.cor, temp.res, temp.out)
+}
+
+# Adjust p-value
+geo.stats$p_value = p.adjust(geo.stats$p_value, method = "fdr")
+
+# Filter out insigniificant comparisons
+geo.stats = geo.stats %>% filter(p_value < 0.05)
+
+
+### Correlating all geochemical variables against overall bNTI
+mult.stats = NULL
+
+for(i in 2:ncol(cor.geo)){
+  if(!identical(row.names(bnti), cor.geo$Site)){
+    stop("The order between bNTI and geospatial data is wrong")
+  }
+  
+  bnti.dist = as.dist(bnti)
+  
+  # Multivariate/Mantel
+  geo.dist = vegdist(cor.geo[,i], method = "euclidean")
+  temp.res = mantel(bnti.dist, geo.dist, method = "spearman", permutations = 9999)
+  temp.out = data.frame(bNTI_Version = "Overall",
+                        Geospatial_Variable = colnames(cor.geo)[i],
+                        Mantel_rho = temp.res$statistic, 
+                        p_value = temp.res$signif)
+  mult.stats = rbind(mult.stats, temp.out)
+  
+  # Within Stream Order Mantel
+  temp.res = mantel(as.dist(so.bnti), geo.dist, method = "spearman", permutations = 9999, na.rm = T)
+  temp.out = data.frame(bNTI_Version = "Within Stream Order",
+                        Geospatial_Variable = colnames(cor.geo)[i],
+                        Mantel_rho = temp.res$statistic, 
+                        p_value = temp.res$signif)
+  mult.stats = rbind(mult.stats, temp.out)
+  
+  # Clean up
+  rm(geo.dist, temp.res, temp.out, bnti.dist)
+}
+
+# Print stats
+geo.stats
+mult.stats
+
+# Writing stats
+write.csv(geo.stats, "Figures/Supplemental_Table_1_Average_bNTI_Geochemical_Correlations.csv", quote = F)
+write.csv(mult.stats, "Figures/Supplemental_Table_1_bNTI_Geochemical_Mantel_Correlations.csv", quote = F)
+
+# Print significant geospatial variables
+print(unique(geo.stats$Geospatial_Variable))
+
+```
+```{r, figure-3-overall-bnti, fig.width=8, fig.height=6.5, results=F, message=F, warning=F}
+# Create data frame for plotting 
+plot.data = data.frame(Sites = colnames(bnti),
+                       bNTI = melt(as.matrix(bnti))$value,
+                       `Difference in PC1` = melt(as.matrix(vegdist(cor.spat$`Geospatial PC1`, method = "euclidean")))$value,
+                       `Difference in Agric.` = melt(as.matrix(vegdist(cor.spat$TOT_agrc16_sqrt, method = "euclidean")))$value,
+                       `Difference in NPOC` = melt(as.matrix(vegdist(cor.geo$Mean_00681_NPOC_mg_per_L_as_C, method = "euclidean")))$value,
+                       `Difference in TN` = melt(as.matrix(vegdist(cor.geo$Mean_00602_TN_mg_per_L_as_N, method = "euclidean")))$value,
+                       check.names = F)
+
+plot.data = melt(plot.data, id.vars = c("Sites", "bNTI"))
+
+# Create stats object
+signif.obj = data.frame(variable = c("Difference in PC1", "Difference in Agric.", "Difference in NPOC", 
+                                     "Difference in TN"),
+                        stats = c(paste0("Mantel rho: 0.4576, p = 0.001"), paste0("Mantel rho: 0.4071, p = 0.001"),
+                                  paste0("Mantel rho: 0.6726, p = 0.001"), paste0("Mantel rho: 0.5071, p = 0.001")))
+signif.obj$variable = factor(signif.obj$variable, levels = c("Difference in PC1", 
+                                                             "Difference in Agric.", 
+                                                             "Difference in NPOC", 
+                                                             "Difference in TN"))
+
+# Plot the data
+fig.3 = plot.data %>%
+  mutate(variable = factor(variable, levels = c("Difference in PC1", 
+                                                "Difference in Agric.", 
+                                                "Difference in NPOC", 
+                                                "Difference in TN"))) %>%
+  ggplot(aes(x = value, y = bNTI))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  xlab("Absolute Difference")+
+  facet_wrap(variable~., scale = "free_x")+
+      geom_text(data = signif.obj, mapping = aes(x = -Inf, y = Inf, label = stats), 
+            hjust = -0.05, vjust   = 1.5)+
+  theme_bw() + theme(text = element_text(size = 12),
+                     axis.title = element_text(color = "black", size = 14),
+                     axis.text = element_text(color = "black"),
+                     axis.ticks = element_line(color = "black"),
+                     panel.border = element_rect(size = 1, color = "black"),
+                     panel.background = element_blank(),
+                     panel.grid = element_blank())
+
+fig.3
+ggsave("Figures/Supplemental_Figure_3.pdf", fig.3)
+
+# Clean up
+rm(plot, plot.data)
+
+```
+
+Again, we see that NPOC is the most correlated variable across our dataset.
+
+```{r figure-4-and-supp-figure-3, fig.width=8, fig.height=6.5}
+# Plotting betaNTI vs. geospatial patterns
+plot1 = plot.alpha.diver(avg.bnti, meta, "Stream_Order") # Included given that it is factorial
+plot2 = plot.alpha.diver(avg.bnti, meta, "TOT_BASIN_AREA_LOG")
+plot2$Plot$layers = plot2$Plot$layers[-2:-3]
+plot2$Plot = plot2$Plot + geom_smooth(method = "gam")
+
+# Combine plots
+fig.4 = ggarrange(plot1$Plot + xlab("Stream Order") + ylab("Average bNTI")+
+                    theme(axis.text.x = element_text(angle = 0, hjust = 0.5)),
+                  plot2$Plot + xlab("log(Tot. Basin Area)") + ylab("Average bNTI"),
+                  text_grob(label = paste0("GAM ANOVA for Basin Area vs. Within-Stream Order \n",
+                                           "F-stat: ", 
+                                           round(anova(non.lin)$s.table[,3], digits = 4), "\n",
+                                           "p = ",
+                                           round(anova(non.lin)$s.table[,4], digits = 4))),
+                  ncol = 1, nrow = 3,
+                  labels = c("A", "B", "C"))
+
+# Supplemental figure 3 (looking at other non-linear realtionships)
+plot1 = plot.alpha.diver(avg.bnti, meta, "TOT_urban16_sqrt") # urban cover
+plot1$Plot$layers = plot1$Plot$layers[-2:-3]
+plot1$Plot = plot1$Plot + geom_smooth(method = "gam")
+
+plot2 = plot.alpha.diver(avg.bnti, meta, "TOT_forest16_sqrt") # forest cover
+plot2$Plot$layers = plot2$Plot$layers[-2:-3]
+plot2$Plot = plot2$Plot + geom_smooth(method = "gam")
+
+plot3 = plot.alpha.diver(avg.bnti, meta, "TOT_wetland16_sqrt") # wetland cover
+plot3$Plot$layers = plot3$Plot$layers[-2:-3]
+plot3$Plot = plot3$Plot + geom_smooth(method = "gam")
+
+plot4 = plot.alpha.diver(avg.bnti, meta, "TOT_agrc16_sqrt") # agrc. cover
+plot4$Plot$layers = plot4$Plot$layers[-2:-3]
+plot4$Plot = plot4$Plot + geom_smooth(method = "gam")
+
+plot5 = plot.alpha.diver(avg.bnti, meta, "TOT_shrub16_sqrt") # shrub cover
+plot5$Plot$layers = plot5$Plot$layers[-2:-3]
+plot5$Plot = plot5$Plot + geom_smooth(method = "gam")
+
+plot6 = plot.alpha.diver(avg.bnti, cor.geo, "Mean_00681_NPOC_mg_per_L_as_C") # NPOC
+plot6$Plot$layers = plot6$Plot$layers[-2:-3]
+plot6$Plot = plot6$Plot + geom_smooth(method = "gam")
+
+# Combine plots
+supp.fig.3 = ggarrange(plot1$Plot + xlab("sqrt(Urban) (%)") + ylab("Average bNTI"),
+                  plot2$Plot + xlab("sqrt(Forest) (%)") + ylab("Average bNTI"),
+                  plot3$Plot + xlab("sqrt(Wetland) (%)") + ylab("Average bNTI"),
+                  plot4$Plot + xlab("sqrt(Agric.) (%)") + ylab("Average bNTI"),
+                  plot5$Plot + xlab("sqrt(Shrub) (%)") + ylab("Average bNTI"),
+                  plot6$Plot + xlab("NPOC (mg/L)") + ylab("Average bNTI"),
+                  labels = c("A", "B", "C", "D", "E", "F"))
+
+rm(list = ls(pattern = "^plot[0-9]"))
+rm(non.lin)
+
+```
+```{r plotting-fig-4, fig.width=3.50, fig.height=11.5}
+fig.4
+ggsave("Figures/Figure_4.pdf", fig.4, width = 3.50, height = 11.5)
+```
+```{r plotting-supp-fig-3, fig.width=8, fig.height=6.5}
+supp.fig.3
+ggsave("Figures/Supplemental_Figure_4.pdf", supp.fig.3, width = 8.5, height = 7)
+```
+
+Somewhat surprisingly, very little is strongly correlated to average bNTI either across the entire dataset or within the stream order - I'm not 100% sure what to make of this at the moment. Focusing on what we can make sense of, however, we do see some exciting patterns. Specifically, we see a unimodal relationship between either stream order or total basin area and average betaNTI within stream order. Using a generalized additive model, we see that total basin area is indeed significantly, non-linearly related to average bNTI calculated within stream orders (F-stat: 5.13098, p ~ 0.003). This indicates that significantly more determinism (and thereby diversification factors) are occurring at middling stream orders/medium sized streams than either at small or large streams. I'm not 100% sold on why this might be, but it obviously suggest that there is some optimal biogeochemical conditions at this point. I know WROL has suggested this dynamic previously for microbial communities, but I have not read too deeply into the mechanism.
+
+As a means of confirmation, I have also run some comparisons with land cover variables and NPOC to see if any of these other so-far important variables highlighted similar dynamics to the unimodal basin area distribution and we cannot see the same patterns (even if some relationships may be significant). This points to distinct scale-based behavior rather than specific land cover influences (but that doesn't discount *all* impacts from land cover differences, of course).
