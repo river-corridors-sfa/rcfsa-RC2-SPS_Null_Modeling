@@ -1,0 +1,17 @@
+Correlation,Geospatial_Variable,bNTI_version,rho,p_value
+X00530_TSS_mg_per_L vs. Mean_bNTI,X00530_TSS_mg_per_L,Mean_bNTI,0.105056229,0.87840064
+Mean_00691_DIC_mg_per_L_as_C vs. Mean_bNTI,Mean_00691_DIC_mg_per_L_as_C,Mean_bNTI,0.073311748,0.87840064
+X00940_Cl_mg_per_L vs. Mean_bNTI,X00940_Cl_mg_per_L,Mean_bNTI,0.050825407,0.894432783
+X00945_SO4_mg_per_L_as_SO4 vs. Mean_bNTI,X00945_SO4_mg_per_L_as_SO4,Mean_bNTI,0.198953485,0.87840064
+X71851_NO3_mg_per_L_as_NO3 vs. Mean_bNTI,X71851_NO3_mg_per_L_as_NO3,Mean_bNTI,0.20793615,0.87840064
+X71856_NO2_mg_per_L_as_NO2 vs. Mean_bNTI,X71856_NO2_mg_per_L_as_NO2,Mean_bNTI,0.066119464,0.87840064
+Mean_00681_NPOC_mg_per_L_as_C vs. Mean_bNTI,Mean_00681_NPOC_mg_per_L_as_C,Mean_bNTI,0.069613483,0.87840064
+Mean_00602_TN_mg_per_L_as_N vs. Mean_bNTI,Mean_00602_TN_mg_per_L_as_N,Mean_bNTI,0.221795247,0.87840064
+X00530_TSS_mg_per_L vs. Mean_bNTI_within_SO,X00530_TSS_mg_per_L,Mean_bNTI_within_SO,-0.019889567,0.894432783
+Mean_00691_DIC_mg_per_L_as_C vs. Mean_bNTI_within_SO,Mean_00691_DIC_mg_per_L_as_C,Mean_bNTI_within_SO,0.10453284,0.87840064
+X00940_Cl_mg_per_L vs. Mean_bNTI_within_SO,X00940_Cl_mg_per_L,Mean_bNTI_within_SO,-0.117494001,0.87840064
+X00945_SO4_mg_per_L_as_SO4 vs. Mean_bNTI_within_SO,X00945_SO4_mg_per_L_as_SO4,Mean_bNTI_within_SO,-0.101934029,0.87840064
+X71851_NO3_mg_per_L_as_NO3 vs. Mean_bNTI_within_SO,X71851_NO3_mg_per_L_as_NO3,Mean_bNTI_within_SO,-0.166066363,0.87840064
+X71856_NO2_mg_per_L_as_NO2 vs. Mean_bNTI_within_SO,X71856_NO2_mg_per_L_as_NO2,Mean_bNTI_within_SO,0.081988135,0.87840064
+Mean_00681_NPOC_mg_per_L_as_C vs. Mean_bNTI_within_SO,Mean_00681_NPOC_mg_per_L_as_C,Mean_bNTI_within_SO,0.021913214,0.894432783
+Mean_00602_TN_mg_per_L_as_N vs. Mean_bNTI_within_SO,Mean_00602_TN_mg_per_L_as_N,Mean_bNTI_within_SO,-0.025634013,0.894432783

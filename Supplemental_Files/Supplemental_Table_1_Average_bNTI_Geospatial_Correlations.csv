@@ -1,0 +1,31 @@
+Correlation,Geospatial_Variable,bNTI_version,rho,p_value
+TOT_AET2015_ANN vs. Mean_bNTI,TOT_AET2015_ANN,Mean_bNTI,0.256952877,0.348159237
+TOT_PET2015_ANN vs. Mean_bNTI,TOT_PET2015_ANN,Mean_bNTI,-0.133795895,0.707613206
+TOT_PPT2015_ANN vs. Mean_bNTI,TOT_PPT2015_ANN,Mean_bNTI,0.089505638,0.716922095
+TOT_TAV2015_ANN vs. Mean_bNTI,TOT_TAV2015_ANN,Mean_bNTI,-0.165495708,0.614445675
+TOT_CONTACT vs. Mean_bNTI,TOT_CONTACT,Mean_bNTI,-0.182711767,0.547437427
+TOT_RECHG vs. Mean_bNTI,TOT_RECHG,Mean_bNTI,0.185834056,0.547437427
+TOT_urban16_sqrt vs. Mean_bNTI,TOT_urban16_sqrt,Mean_bNTI,-0.01931194,0.953246252
+TOT_forest16_sqrt vs. Mean_bNTI,TOT_forest16_sqrt,Mean_bNTI,0.012142238,0.953246252
+TOT_wetland16_sqrt vs. Mean_bNTI,TOT_wetland16_sqrt,Mean_bNTI,0.290738745,0.348159237
+TOT_agrc16_sqrt vs. Mean_bNTI,TOT_agrc16_sqrt,Mean_bNTI,0.144457613,0.707613206
+TOT_shrub16_sqrt vs. Mean_bNTI,TOT_shrub16_sqrt,Mean_bNTI,-0.014570685,0.953246252
+TOT_BASIN_AREA_LOG vs. Mean_bNTI,TOT_BASIN_AREA_LOG,Mean_bNTI,-0.048915872,0.930042784
+Geospatial PC1 vs. Mean_bNTI,Geospatial PC1,Mean_bNTI,0.100491472,0.707613206
+Geospatial PC2 vs. Mean_bNTI,Geospatial PC2,Mean_bNTI,0.300664933,0.348159237
+Geospatial PC3 vs. Mean_bNTI,Geospatial PC3,Mean_bNTI,0.360219717,0.348159237
+TOT_AET2015_ANN vs. Mean_bNTI_within_SO,TOT_AET2015_ANN,Mean_bNTI_within_SO,0.267938711,0.348159237
+TOT_PET2015_ANN vs. Mean_bNTI_within_SO,TOT_PET2015_ANN,Mean_bNTI_within_SO,-0.119687771,0.707613206
+TOT_PPT2015_ANN vs. Mean_bNTI_within_SO,TOT_PPT2015_ANN,Mean_bNTI_within_SO,-0.008788667,0.953246252
+TOT_TAV2015_ANN vs. Mean_bNTI_within_SO,TOT_TAV2015_ANN,Mean_bNTI_within_SO,-0.098013706,0.707613206
+TOT_CONTACT vs. Mean_bNTI_within_SO,TOT_CONTACT,Mean_bNTI_within_SO,-0.241572709,0.381998211
+TOT_RECHG vs. Mean_bNTI_within_SO,TOT_RECHG,Mean_bNTI_within_SO,-0.034345187,0.953246252
+TOT_urban16_sqrt vs. Mean_bNTI_within_SO,TOT_urban16_sqrt,Mean_bNTI_within_SO,-0.268863834,0.348159237
+TOT_forest16_sqrt vs. Mean_bNTI_within_SO,TOT_forest16_sqrt,Mean_bNTI_within_SO,-0.101763516,0.707613206
+TOT_wetland16_sqrt vs. Mean_bNTI_within_SO,TOT_wetland16_sqrt,Mean_bNTI_within_SO,-0.011395848,0.953246252
+TOT_agrc16_sqrt vs. Mean_bNTI_within_SO,TOT_agrc16_sqrt,Mean_bNTI_within_SO,-0.096463082,0.707613206
+TOT_shrub16_sqrt vs. Mean_bNTI_within_SO,TOT_shrub16_sqrt,Mean_bNTI_within_SO,0.106620411,0.707613206
+TOT_BASIN_AREA_LOG vs. Mean_bNTI_within_SO,TOT_BASIN_AREA_LOG,Mean_bNTI_within_SO,-0.256952877,0.348159237
+Geospatial PC1 vs. Mean_bNTI_within_SO,Geospatial PC1,Mean_bNTI_within_SO,0.111708586,0.707613206
+Geospatial PC2 vs. Mean_bNTI_within_SO,Geospatial PC2,Mean_bNTI_within_SO,-0.201098584,0.525839892
+Geospatial PC3 vs. Mean_bNTI_within_SO,Geospatial PC3,Mean_bNTI_within_SO,0.223764094,0.435124611

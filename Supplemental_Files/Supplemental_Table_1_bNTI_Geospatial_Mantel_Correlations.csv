@@ -1,0 +1,31 @@
+bNTI_Version,Geospatial_Variable,Mantel_rho,p_value
+Overall,TOT_AET2015_ANN,0.31728972,1.00E-04
+Within Stream Order,TOT_AET2015_ANN,0.402614864,1.00E-04
+Overall,TOT_PET2015_ANN,0.378261755,1.00E-04
+Within Stream Order,TOT_PET2015_ANN,0.417895677,1.00E-04
+Overall,TOT_PPT2015_ANN,0.43644474,1.00E-04
+Within Stream Order,TOT_PPT2015_ANN,0.486997572,1.00E-04
+Overall,TOT_TAV2015_ANN,0.327629613,1.00E-04
+Within Stream Order,TOT_TAV2015_ANN,0.396708972,1.00E-04
+Overall,TOT_CONTACT,0.22549126,5.00E-04
+Within Stream Order,TOT_CONTACT,0.231700089,0.0086
+Overall,TOT_RECHG,0.372094297,1.00E-04
+Within Stream Order,TOT_RECHG,0.420879634,1.00E-04
+Overall,TOT_urban16_sqrt,0.097392183,0.0493
+Within Stream Order,TOT_urban16_sqrt,0.281971364,0.0031
+Overall,TOT_forest16_sqrt,0.330317221,1.00E-04
+Within Stream Order,TOT_forest16_sqrt,0.372482601,1.00E-04
+Overall,TOT_wetland16_sqrt,0.06395316,0.1078
+Within Stream Order,TOT_wetland16_sqrt,0.237785152,0.0048
+Overall,TOT_agrc16_sqrt,0.407061776,1.00E-04
+Within Stream Order,TOT_agrc16_sqrt,0.387247423,2.00E-04
+Overall,TOT_shrub16_sqrt,0.270241208,1.00E-04
+Within Stream Order,TOT_shrub16_sqrt,0.306560528,8.00E-04
+Overall,TOT_BASIN_AREA_LOG,0.13233557,0.0186
+Within Stream Order,TOT_BASIN_AREA_LOG,0.299097101,0.0013
+Overall,Geospatial PC1,0.457633196,1.00E-04
+Within Stream Order,Geospatial PC1,0.508055757,1.00E-04
+Overall,Geospatial PC2,0.143756978,0.0111
+Within Stream Order,Geospatial PC2,0.114154081,0.1132
+Overall,Geospatial PC3,-0.001875831,0.4871
+Within Stream Order,Geospatial PC3,0.11368552,0.1158

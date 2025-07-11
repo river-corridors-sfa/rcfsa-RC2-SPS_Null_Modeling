@@ -1,0 +1,17 @@
+bNTI_Version,Geospatial_Variable,Mantel_rho,p_value
+Overall,X00530_TSS_mg_per_L,0.326904315,1.00E-04
+Within Stream Order,X00530_TSS_mg_per_L,0.279861618,0.0036
+Overall,Mean_00691_DIC_mg_per_L_as_C,0.273426636,2.00E-04
+Within Stream Order,Mean_00691_DIC_mg_per_L_as_C,0.395527488,2.00E-04
+Overall,X00940_Cl_mg_per_L,0.384803165,1.00E-04
+Within Stream Order,X00940_Cl_mg_per_L,0.355062587,0.0013
+Overall,X00945_SO4_mg_per_L_as_SO4,0.2738527,2.00E-04
+Within Stream Order,X00945_SO4_mg_per_L_as_SO4,0.284709148,0.0045
+Overall,X71851_NO3_mg_per_L_as_NO3,0.275775889,4.00E-04
+Within Stream Order,X71851_NO3_mg_per_L_as_NO3,0.199720352,0.0359
+Overall,X71856_NO2_mg_per_L_as_NO2,0.039295699,0.2988
+Within Stream Order,X71856_NO2_mg_per_L_as_NO2,0.042390979,0.2578
+Overall,Mean_00681_NPOC_mg_per_L_as_C,0.672604642,1.00E-04
+Within Stream Order,Mean_00681_NPOC_mg_per_L_as_C,0.622826961,1.00E-04
+Overall,Mean_00602_TN_mg_per_L_as_N,0.507193222,1.00E-04
+Within Stream Order,Mean_00602_TN_mg_per_L_as_N,0.496608525,1.00E-04
