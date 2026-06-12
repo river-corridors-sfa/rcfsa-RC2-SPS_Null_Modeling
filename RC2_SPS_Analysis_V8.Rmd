@@ -362,7 +362,7 @@ The variables exported from NHD+ are distributed across a couple files. Here, we
 
 ```{r clean-NHDplus-data}
 # List geospatial data
-geo.files = list.files(path = "Geospatial Data/", pattern = "updated", full.names = T)
+geo.files = list.files(path = "Geospatial_Data/", pattern = "updated", full.names = T)
 
 # Load in each geospatial data file and merge
 geospat = read.csv(geo.files[1]) %>% select(-COMID)# Load initial file to append to
